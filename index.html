@@ -6,6 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>정통 AI 관상학자 - 30년 경력의 혜안</title>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm/vision_bundle.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.24.2/dist/ort.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
 </head>
 
 <body>
@@ -25,13 +27,12 @@
         </div>
       </header>
 
-      <!-- 사진 업로드 두루마리 (디자인 완전 유지) -->
+      <!-- 사진 업로드 두루마리 -->
       <div class="scroll-wrapper open">
         <img src="/scroll_top.png" class="scroll-img-top" alt="두루마리 상단">
         <div class="scroll-body">
           <div class="scroll-content">
             <div style="display: flex; gap: 15px; flex-wrap: wrap; justify-content: center;">
-              <!-- 정면 사진 슬롯 -->
               <div class="upload-area" onclick="document.getElementById('imageInputFront').click()" style="flex: 1; min-width: 200px;">
                 <input type="file" id="imageInputFront" accept="image/*" style="display:none">
                 <div id="uploadPlaceholderFront">
@@ -41,7 +42,6 @@
                 <img id="imagePreviewFront" src="" style="max-width: 100%; display: none; border: 5px solid #fff;">
               </div>
               
-              <!-- 대각선 사진 슬롯 -->
               <div class="upload-area" onclick="document.getElementById('imageInputDiag').click()" style="flex: 1; min-width: 200px;">
                 <input type="file" id="imageInputDiag" accept="image/*" style="display:none">
                 <div id="uploadPlaceholderDiag">
@@ -57,16 +57,28 @@
       </div>
     </form>
 
-    <!-- 분석 중 팝업 (디자인 완전 유지) -->
     <div id="loadingOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 1000; align-items: center; justify-content: center;">
       <div style="text-align: center; background: #ffffff; padding: 40px; border: 3px solid #a08c6d; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.2);">
         <p style="font-size: 2.2rem; font-weight: 900; color: #333; margin-bottom: 25px; letter-spacing: 3px; font-family: 'Noto Serif KR', serif;">분석중..</p>
-        <img id="loadingAnimation" src="/animation_frames/frame_0000.png" alt="분석중" style="width: 280px; max-width: 90%;">
+        <img id="loadingAnimation" src="/animation_frames/frame_0000.png" alt="분석중" style="width: 280px; max-width: 90%; border-radius: 10px;">
       </div>
     </div>
 
-    <!-- 결과 창 -->
-    <div id="finalResult" style="display: none; width: 90%; max-width: 800px; margin: 40px auto; padding: 40px; background: rgba(10, 7, 5, 0.85); border: 2px solid #c5a059; border-radius: 15px; color: #fff;">
+    <!-- 결과 출력 영역 (세그멘테이션 검증 캔버스 포함) -->
+    <div id="finalResult" style="display: none; width: 95%; max-width: 1000px; margin: 40px auto; padding: 40px; background: rgba(10, 7, 5, 0.9); border: 2px solid #c5a059; border-radius: 15px; color: #fff;">
+      <h3 style="color:#c5a059; text-align:center; margin-bottom:30px;">[ 얼굴 분석 및 세그멘테이션 검증 ]</h3>
+      
+      <div style="display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; margin-bottom: 40px;">
+        <div style="text-align: center;">
+          <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 10px;">정면 인식 결과</p>
+          <canvas id="canvasFront" style="max-width: 100%; height: auto; border: 2px solid #444; border-radius: 10px;"></canvas>
+        </div>
+        <div style="text-align: center;">
+          <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 10px;">대각선 인식 결과</p>
+          <canvas id="canvasDiag" style="max-width: 100%; height: auto; border: 2px solid #444; border-radius: 10px;"></canvas>
+        </div>
+      </div>
+
       <div class="output"></div>
       <div id="aiImageSection" style="display: none; margin-top: 30px; text-align: center;">
         <div class="image-frame" style="border: 10px solid #fff; box-shadow: 0 10px 30px rgba(0,0,0,0.5);"><img id="generatedImage" src="" style="width: 100%;"></div>
@@ -74,7 +86,7 @@
     </div>
   </main>
 
-  <!-- 내부 분석용 숨겨진 캔버스 -->
+  <!-- 내부 분석을 위한 숨겨진 소스 캔버스 -->
   <canvas id="hiddenCanvasFront" style="display: none;"></canvas>
   <canvas id="hiddenCanvasDiag" style="display: none;"></canvas>
 

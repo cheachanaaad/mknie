@@ -12,6 +12,8 @@ const uploadPlaceholderFront = document.getElementById('uploadPlaceholderFront')
 const uploadPlaceholderDiag = document.getElementById('uploadPlaceholderDiag');
 const hiddenCanvasFront = document.getElementById('hiddenCanvasFront');
 const hiddenCanvasDiag = document.getElementById('hiddenCanvasDiag');
+const canvasFront = document.getElementById('canvasFront');
+const canvasDiag = document.getElementById('canvasDiag');
 const scrollSound = document.getElementById('scrollSound');
 const loadingOverlay = document.getElementById('loadingOverlay');
 const loadingAnimationImg = document.getElementById('loadingAnimation');
@@ -21,17 +23,17 @@ let faceLandmarker;
 let isAnimating = false;
 let soundTimer = null;
 
-const totalFrames = 10;
-const frames = Array.from({ length: totalFrames }, (_, i) => `/animation_frames/frame_${String(i).padStart(4, '0')}.png`);
+const totalFrames = 60;
+const frames = Array.from({ length: totalFrames }, (_, i) => `/animation_frames/frame_${String(i).padStart(4, '0')}.jpg`);
 let currentFrame = 0; let direction = 1; let animationInterval = null;
 
 const startLoadingAnimation = () => {
   animationInterval = setInterval(() => {
     currentFrame += direction;
-    if (currentFrame >= totalFrames - 1) { direction = -1; }
-    else if (currentFrame <= 0) { direction = 1; }
+    if (currentFrame >= totalFrames - 1) { currentFrame = totalFrames - 1; direction = -1; }
+    else if (currentFrame <= 0) { currentFrame = 0; direction = 1; }
     loadingAnimationImg.src = frames[currentFrame];
-  }, 80);
+  }, 50);
 };
 const stopLoadingAnimation = () => { clearInterval(animationInterval); animationInterval = null; };
 
@@ -42,190 +44,171 @@ const playScrollSound = (duration) => {
   soundTimer = setTimeout(() => { scrollSound.pause(); scrollSound.currentTime = 0; }, duration);
 };
 
-async function initMediaPipe() {
-  const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm");
-  faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
-    baseOptions: { modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`, delegate: "GPU" },
-    runningMode: "IMAGE", numFaces: 1
-  });
-}
-initMediaPipe();
+async function initEngines() {
+  try {
+    // 1. MediaPipe 초기화 (랜드마크 및 관상 분석용)
+    const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm");
+    faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+      baseOptions: { modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`, delegate: "GPU" },
+      runningMode: "IMAGE", numFaces: 1
+    });
 
-const handleImage = (input, preview, placeholder, canvas) => {
+    // 2. face-api.js 초기화 (모바일 최적화: TinyFaceDetector 사용)
+    const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js/weights';
+    await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+    await faceapi.nets.ageGenderNet.loadFromUri(MODEL_URL);
+    
+    console.log("모든 분석 엔진 초기화 완료");
+  } catch (err) {
+    console.error("엔진 초기화 실패:", err);
+  }
+}
+initEngines();
+
+const handleImageChange = (input, preview, placeholder, canvas) => {
   const file = input.files[0];
   if (file && !isAnimating) {
-    isAnimating = true;
-    const scroll = input.closest('.scroll-wrapper');
-    scroll.classList.remove('open');
-    setTimeout(() => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          preview.src = e.target.result; preview.style.display = 'block'; placeholder.style.display = 'none';
-          canvas.width = img.width; canvas.height = img.height;
-          canvas.getContext('2d').drawImage(img, 0, 0);
-          playScrollSound(window.innerWidth <= 768 ? 800 : 1200);
-          requestAnimationFrame(() => { scroll.classList.add('open'); isAnimating = false; });
-        };
-        img.src = e.target.result;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        preview.src = e.target.result; preview.style.display = 'block'; placeholder.style.display = 'none';
+        canvas.width = img.width; canvas.height = img.height;
+        canvas.getContext('2d').drawImage(img, 0, 0);
       };
-      reader.readAsDataURL(file);
-    }, 1000);
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
   }
 };
 
-imageInputFront.onchange = () => handleImage(imageInputFront, imagePreviewFront, uploadPlaceholderFront, hiddenCanvasFront);
-imageInputDiag.onchange = () => handleImage(imageInputDiag, imagePreviewDiag, uploadPlaceholderDiag, hiddenCanvasDiag);
+imageInputFront.onchange = () => handleImageChange(imageInputFront, imagePreviewFront, uploadPlaceholderFront, hiddenCanvasFront);
+imageInputDiag.onchange = () => handleImageChange(imageInputDiag, imagePreviewDiag, uploadPlaceholderDiag, hiddenCanvasDiag);
+
+const clip = (x) => Math.min(1, Math.max(0, x));
+// 이미지 비율(ar)을 적용한 실제 거리 계산 함수 (나이 165세 오류 해결 핵심)
+const getDist = (p1, p2, ar = 1) => Math.sqrt(Math.pow((p2.x - p1.x) * ar, 2) + Math.pow(p2.y - p1.y, 2));
 
 /**
- * 전 부위 정밀 관상 판정 엔진
+ * face-api.js와 MediaPipe를 조합한 정밀 분석 엔진
  */
-function runFullPhysiognomyEngine(landmarks) {
-  const getDist = (p1, p2) => Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
-  const D = getDist(landmarks[133], landmarks[362]); // 기준 길이: 내안각 거리
-
-  const results = [];
-  const metrics = {};
-
-  // --- 1) 눈 분석 ---
-  const EyeH = Math.abs(landmarks[145].y - landmarks[159].y);
-  const EyeW = getDist(landmarks[33], landmarks[133]);
-  const S_up = Math.max(0, landmarks[468].y - landmarks[159].y) / EyeH;
-  const S_low = Math.max(0, landmarks[145].y - landmarks[468].y) / EyeH;
-  const aspect = EyeW / EyeH;
-  const tilt = Math.atan2(landmarks[133].y - landmarks[33].y, landmarks[133].x - landmarks[33].x) * (180 / Math.PI);
-
-  metrics["눈_흰자노출_상"] = S_up.toFixed(3);
-  metrics["눈_흰자노출_하"] = S_low.toFixed(3);
-  metrics["눈_가로세로비"] = aspect.toFixed(3);
-
-  if (S_low - S_up >= 0.18 && S_low >= 0.28) results.push("하삼백안: 냉철하고 도전적인 기질");
-  else if (S_up - S_low >= 0.18 && S_up >= 0.28) results.push("상삼백안: 고집과 신념이 강함");
-  if (aspect >= 3.0 && Math.abs(tilt) <= 10) results.push("봉안: 지혜롭고 귀하게 될 상");
-  else if (aspect >= 3.2 && (EyeH/D) <= 0.22) results.push("세안: 신중하고 치밀한 성품");
-  else if (aspect <= 2.6 && (EyeH/D) >= 0.24) results.push("우안: 인덕이 많고 성품이 선함");
-
-  // --- 2) 코 분석 ---
-  const noseLen = getDist(landmarks[168], landmarks[1]) / D;
-  const noseW = getDist(landmarks[102], landmarks[331]) / D;
-  // 매부리 추정 (콧대 중앙 6번 포인트의 z축 돌출도와 직선 이탈도)
-  const bridgeLineDist = Math.abs(landmarks[6].z - (landmarks[168].z + landmarks[1].z)/2);
+async function analyzeIdentity(canvasFront, lms) {
+  const ar = canvasFront.width / canvasFront.height;
+  const D = getDist(lms[133], lms[362], ar);
   
-  metrics["코_길이비율"] = noseLen.toFixed(3);
-  metrics["코_너비비율"] = noseW.toFixed(3);
+  // 1. face-api.js를 이용한 나이/성별 측정 (모바일 최적화 탐지기 사용)
+  let age = null, gender = null;
+  try {
+    const result = await faceapi.detectSingleFace(canvasFront, new faceapi.TinyFaceDetectorOptions()).withAgeAndGender();
+    if (result) {
+      age = Math.round(result.age);
+      gender = result.gender === 'male' ? '남성' : '여성';
+    }
+  } catch (e) { console.error("face-api 분석 실패:", e); }
 
-  if (noseLen >= 0.95 && landmarks[1].z < -0.05) results.push("곧고 높은 콧대: 자존감이 높고 명예를 중시함");
-  if (noseLen <= 0.85) results.push("낮은 코: 실리적이며 원만한 대인관계");
-  if (bridgeLineDist >= 0.02) results.push("매부리코: 재물 집착과 강한 생활력");
+  // 2. AI 실패 시 또는 데이터 보정을 위한 휴리스틱 분석 (나이 165세 방지 로직 포함)
+  if (!age || !gender) {
+    const faceLen = getDist(lms[10], lms[152], ar) / D;
+    const eyeH = Math.abs(lms[159].y - lms[145].y), eyeW = getDist(lms[33], lms[133], ar);
+    const eyeRatio = eyeH / eyeW;
+    
+    age = Math.round(25 + (faceLen - 3.1) * 25 + (0.3 - eyeRatio) * 60);
+    age = Math.max(15, Math.min(85, age)); // 현실적인 범위로 제한
 
-  // --- 3) 입 분석 ---
-  const mouthW = getDist(landmarks[61], landmarks[291]) / D;
-  const cornerTilt = ((landmarks[61].y + landmarks[291].y) / 2 - landmarks[13].y) / (getDist(landmarks[61], landmarks[291]));
-  
-  metrics["입_너비비율"] = mouthW.toFixed(3);
-  metrics["입꼬리_기울기"] = cornerTilt.toFixed(3);
-
-  if (mouthW >= 0.42) results.push("큰 입: 호탕하고 지도자적 기질");
-  if (mouthW <= 0.35) results.push("작은 입: 소심하나 예술적 감각이 뛰어남");
-  if (cornerTilt >= 0.025) results.push("입꼬리 상승: 긍정적이며 말년에 복이 많음");
-  if (cornerTilt <= -0.025) results.push("입꼬리 하강: 비판적이며 의지가 강함");
-
-  // --- 4) 이마 및 턱 분석 ---
-  const foreheadH = Math.abs(landmarks[9].y - landmarks[10].y) / D;
-  const faceH = Math.abs(landmarks[152].y - landmarks[10].y) / D;
-  const cheekW = getDist(landmarks[234], landmarks[454]) / D;
-  const jawW = getDist(landmarks[172], landmarks[397]) / D;
-  
-  metrics["이마_높이비율"] = (foreheadH/faceH).toFixed(3);
-  metrics["턱_너비비율"] = (jawW/cheekW).toFixed(3);
-  metrics["얼굴_가로세로비"] = (cheekW/faceH).toFixed(3);
-
-  if (foreheadH/faceH >= 0.32) results.push("넓고 둥근 이마: 초년운이 좋고 지적 능력이 우수함");
-  if (jawW/cheekW >= 0.98) results.push("사각턱: 끈기가 강하고 자수성가할 상");
-  if (jawW/cheekW <= 0.90) results.push("뾰족턱/약한턱선: 감수성이 예민하고 변화를 즐김");
-
-  // --- 5) 얼굴형 판정 ---
-  const faceRatio = cheekW / faceH; 
-  const jawCheekRatio = jawW / cheekW; 
-
-  let faceShape = "";
-  if (faceRatio > 0.85) faceShape = "둥근형: 성격이 원만하고 사교성이 좋음";
-  else if (jawCheekRatio > 0.92) faceShape = "사각형: 정직하고 책임감이 강하며 신뢰를 주는 상";
-  else if (jawCheekRatio < 0.82) faceShape = "역삼각형: 지적이며 예술적 감각이 예리함";
-  else faceShape = "계란형: 품격이 있고 매사에 균형 잡힌 기운";
-  
-  results.unshift(`얼굴형 - ${faceShape}`);
-
-  // --- 6) 좌우 대칭 분석 (추가) ---
-  const leftEyeY = landmarks[159].y;
-  const rightEyeY = landmarks[386].y;
-  const eyeDiff = Math.abs(leftEyeY - rightEyeY) / EyeH; // 눈 높이 차이
-
-  const leftMouthY = landmarks[61].y;
-  const rightMouthY = landmarks[291].y;
-  const mouthDiff = Math.abs(leftMouthY - rightMouthY) / (Math.abs(landmarks[13].y - landmarks[14].y) || 0.01); // 입꼬리 높이 차이
-
-  metrics["눈_비대칭지수"] = eyeDiff.toFixed(3);
-  metrics["입_비대칭지수"] = mouthDiff.toFixed(3);
-
-  if (eyeDiff <= 0.05 && mouthDiff <= 0.08) {
-    results.push("좌우 대칭: 심신이 안정되고 매사에 균형 잡힌 생활을 할 상");
-  } else {
-    results.push("비대칭적 개성: 창의적이고 임기응변에 능하며 역동적인 운세");
+    const browDist = (getDist(lms[105], lms[33], ar) + getDist(lms[334], lms[263], ar)) / 2 / D;
+    const jawWidth = getDist(lms[172], lms[397], ar) / D;
+    gender = (browDist * 0.3 + jawWidth * 0.7) > 1.2 ? "남성" : "여성";
   }
 
-  return { metrics, types: results };
+  // 3. 살집(육질) 분석 (MediaPipe 랜드마크 활용)
+  const cheekDist = getDist(lms[234], lms[454], ar) / D;
+  const jawDist = getDist(lms[172], lms[397], ar) / D;
+  const fullnessRatio = cheekDist / jawDist;
+  
+  let meatText = fullnessRatio < 1.05 ? "살집이 풍만하고 재복이 넘치는 상" : (fullnessRatio < 1.15 ? "살과 뼈가 조화로운 귀한 상" : "골격이 뚜렷하고 기개가 높은 상");
+
+  return { age, gender, fullness: meatText };
+}
+
+function drawLandmarks(lms, src, target) {
+  target.width = src.width; target.height = src.height;
+  const ctx = target.getContext('2d'); ctx.drawImage(src, 0, 0);
+  ctx.fillStyle = "#00ff00";
+  lms.forEach(p => { ctx.beginPath(); ctx.arc(p.x * target.width, p.y * target.height, 1.2, 0, 2*Math.PI); ctx.fill(); });
+}
+
+function runMasterScoringEngine(fLms, dLms, canvas) {
+  const ar = canvas.width / canvas.height;
+  const D = getDist(fLms[133], fLms[362], ar);
+  const res = {};
+
+  const EyeH = Math.abs(fLms[145].y - fLms[159].y), EyeW = getDist(fLms[33], fLms[133], ar);
+  const Aspect = EyeW / EyeH, S_up = Math.max(0, fLms[468].y - fLms[159].y) / EyeH, S_low = Math.max(0, fLms[145].y - fLms[468].y) / EyeH;
+  const Tilt = Math.atan2(fLms[133].y - fLms[33].y, (fLms[133].x - fLms[33].x) * ar) * (180 / Math.PI);
+
+  const s_low3 = clip(((S_low - S_up) - 0.01)/0.08) * clip((S_low - 0.08)/0.05);
+  const s_up3 = clip(((S_up - S_low) - 0.01)/0.08) * clip((S_up - 0.08)/0.05);
+  
+  if (s_low3 >= 0.05) { res.eye = "하삼백안: 냉철하고 야망이 큰 상"; }
+  else if (s_up3 >= 0.05) { res.eye = "상삼백안: 집념과 고집이 강한 상"; }
+  else {
+    const s_bong = clip((Aspect - 2.7)/0.8) * clip((Tilt - 2)/8) * (1 - clip((Math.max(S_up, S_low) - 0.10)/0.10));
+    const s_se = clip((Aspect - 3.1)/0.8) * (1 - clip((EyeH/D - 0.23)/0.08));
+    const s_woo = clip((2.7 - Aspect)/0.8) * clip((EyeH/D - 0.22)/0.12) * (1 - clip((Math.abs(Tilt)-6)/8));
+    const scores = { "봉안": s_bong, "세안": s_se, "우안": s_woo };
+    res.eye = Object.keys(scores).reduce((a, b) => scores[a] > scores[b] ? a : b);
+  }
+
+  const BridgeProj = Math.abs(dLms[1].z - dLms[168].z) / (D / ar);
+  res.nose = clip((BridgeProj - 0.24)/0.10) > clip((0.22 - BridgeProj)/0.08) ? "곧고 높은 콧대" : "낮은 코";
+  const MW = getDist(fLms[61], fLms[291], ar) / D;
+  res.mouth = (MW > 0.42 ? "큰 입" : "작은 입");
+  const cheekW = getDist(fLms[234], fLms[454], ar) / D, faceH = getDist(fLms[10], fLms[152], ar) / D;
+  const JawCheek = (getDist(fLms[172], fLms[397], ar) / D) / cheekW, WH = cheekW / faceH;
+  const s_round = 0.6*clip((WH - 0.76)/0.10) + 0.4*clip((0.96 - JawCheek)/0.10);
+  const s_square = 0.7*clip((JawCheek - 0.96)/0.08) + 0.3*clip((WH - 0.70)/0.10);
+  res.faceShape = s_round > s_square ? (s_round > 0.5 ? "둥근형" : "계란형") : (s_square > 0.5 ? "사각형" : "계란형");
+
+  return res;
 }
 
 form.onsubmit = async ev => {
   ev.preventDefault();
-  if (!imageInputFront.files[0] || !imageInputDiag.files[0]) return alert("정면과 대각선 사진 2장을 모두 올려주시오.");
-  
+  if (!imageInputFront.files[0] || !imageInputDiag.files[0]) return alert("사진 2장을 모두 올려주시오.");
   const scroll = document.querySelector('.scroll-wrapper');
   scroll.classList.remove('open');
-  
   setTimeout(() => { loadingOverlay.style.display = 'flex'; startLoadingAnimation(); finalResult.style.display = 'none'; }, 800);
   if (scrollSound) playScrollSound(800);
 
   try {
-    const fRes = faceLandmarker.detect(hiddenCanvasFront);
-    const dRes = faceLandmarker.detect(hiddenCanvasDiag);
+    const fRes = faceLandmarker.detect(hiddenCanvasFront), dRes = faceLandmarker.detect(hiddenCanvasDiag);
+    if (!fRes.faceLandmarks[0] || !dRes.faceLandmarks[0]) throw new Error("인식 실패");
     
-    if (!fRes.faceLandmarks[0]) throw new Error("얼굴을 인식할 수 없소.");
-
-    // 정면과 대각선 데이터를 융합하여 분석
-    const analysis = runFullPhysiognomyEngine(fRes.faceLandmarks[0]);
-    const diagData = dRes.faceLandmarks[0] ? runFullPhysiognomyEngine(dRes.faceLandmarks[0]) : null;
-
-    let resultHtml = `<h2 style="color:#c5a059; text-align:center; border-bottom:2px solid #c5a059; padding-bottom:10px;">觀相 精密 診斷書</h2>`;
-    resultHtml += `<div style="margin:20px 0;">`;
-    analysis.types.forEach(t => {
-      resultHtml += `<p style="font-size:1.1rem; color:#fff; margin-bottom:12px;">✔️ ${t}</p>`;
-    });
-    // 대각선에서만 보이는 코/이마 보정치 추가
-    if (diagData && diagData.metrics["코_길이비율"] > analysis.metrics["코_길이비율"]) {
-      resultHtml += `<p style="font-size:1.1rem; color:#fff; margin-bottom:12px;">✔️ 측면 보정: 콧대가 높고 이목구비가 뚜렷한 상</p>`;
-    }
-    resultHtml += `</div>`;
+    drawLandmarks(fRes.faceLandmarks[0], hiddenCanvasFront, canvasFront);
+    drawLandmarks(dRes.faceLandmarks[0], hiddenCanvasDiag, canvasDiag);
     
-    resultHtml += `<hr style="border:0; border-top:1px solid #444; margin:25px 0;">`;
-    resultHtml += `<h4 style="color:#8a7d6a;">[ 0.001 정밀 측정 원천 데이터 ]</h4>`;
-    resultHtml += `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-family:monospace; font-size:0.85rem; color:#aaa;">`;
-    for (const [k, v] of Object.entries(analysis.metrics)) {
-      resultHtml += `<div>${k}: <span style="color:#c5a059;">${v}</span></div>`;
+    // face-api.js와 MediaPipe를 조합한 정밀 분석 실행
+    const identity = await analyzeIdentity(hiddenCanvasFront, fRes.faceLandmarks[0]);
+    const analysis = runMasterScoringEngine(fRes.faceLandmarks[0], dRes.faceLandmarks[0], hiddenCanvasFront);
+
+    let html = `<h2 style="color:#c5a059; text-align:center; border-bottom:2px solid #c5a059; padding-bottom:15px;">觀상 精밀 診단 결과서</h2>`;
+    html += `<div style="margin:20px 0; display:grid; gap:12px;">`;
+    html += `<div style="background:rgba(255,255,255,0.05); padding:12px; border-radius:8px; border-left:4px solid #c5a059;">
+              <span style="color:#c5a059; font-weight:bold; font-size:0.85rem;">기본 정보</span>
+              <p style="color:#fff; font-size:1.05rem; margin:4px 0 0 0;">나이: ${identity.age}세 전후 / 성별: ${identity.gender}</p>
+            </div>`;
+    html += `<div style="background:rgba(255,255,255,0.05); padding:12px; border-radius:8px; border-left:4px solid #c5a059;">
+              <span style="color:#c5a059; font-weight:bold; font-size:0.85rem;">육질(살집)</span>
+              <p style="color:#fff; font-size:1.05rem; margin:4px 0 0 0;">${identity.fullness}</p>
+            </div>`;
+    for (const [key, val] of Object.entries(analysis)) {
+      html += `<div style="background:rgba(255,255,255,0.05); padding:12px; border-radius:8px; border-left:4px solid #c5a059;">
+                <span style="color:#c5a059; font-weight:bold; font-size:0.85rem;">${key.toUpperCase()}</span>
+                <p style="color:#fff; font-size:1.05rem; margin:4px 0 0 0;">${val}</p>
+              </div>`;
     }
-    resultHtml += `</div>`;
-
-    setTimeout(() => {
-      stopLoadingAnimation();
-      loadingOverlay.style.display = 'none';
-      finalResult.style.display = 'block';
-      output.innerHTML = resultHtml;
-    }, 2500);
-
-  } catch (e) {
-    stopLoadingAnimation(); loadingOverlay.style.display = 'none';
-    alert(e.message);
-  }
+    html += `</div>`;
+    
+    setTimeout(() => { stopLoadingAnimation(); loadingOverlay.style.display = 'none'; finalResult.style.display = 'block'; output.innerHTML = html; }, 3500);
+  } catch (e) { stopLoadingAnimation(); loadingOverlay.style.display = 'none'; alert(e.message); }
 };
