@@ -1,155 +1,205 @@
+:root {
+  --ink-black: #1a1a1a;
+  --silk-red: #7a0000;
+  --gold-metallic: #c5a059;
+}
+
+/* html에 배경색을 미리 깔아둠 */
+html {
+  background-color: #0a0705;
+  height: 100%;
+}
+
 body {
-  margin: 24px;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  -webkit-font-smoothing: antialiased;
-  --accent-color: #076EFF;
-  color: #202124;
+  margin: 0;
+  padding: 0;
+  font-family: 'Noto Serif KR', serif;
+  color: #e0d5c1;
+  overflow-x: hidden;
+  min-height: 100%;
 }
 
-main,
-.api-key-banner {
-  box-sizing: border-box;
+/* 모바일 배경 고정 버그 해결: 레이아웃에 영향을 주지 않는 가상 레이어 */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
   width: 100%;
-  padding: 24px;
-  max-width: 460px;
-  margin: 0 auto;
-  border-radius: 20px;
+  /* 주소창 변화 및 오버스크롤 대응을 위해 높이를 넉넉하게 설정 */
+  height: 100%;
+  height: 105vh; 
+  background: url('/main_background.png') no-repeat center center;
+  background-size: cover;
+  z-index: -1;
+  will-change: transform;
 }
 
-.api-key-banner {
-  background-color: #FFDDB7;
-  font-weight: bold;
-  margin-bottom: 16px;
+header {
+  text-align: center;
+  margin-bottom: 20px;
+  padding-top: 20px;
 }
 
-.api-key-banner a {
-  color: var(--accent-color);
+.title-container {
+  display: inline-block;
+  position: relative;
+  margin-bottom: 10px;
 }
 
-* {
-  outline-color: var(--accent-color);
+.title-image {
+  max-width: 250px;
+  height: auto;
+  filter: drop-shadow(2px 2px 10px rgba(0,0,0,0.8));
+}
+
+.title-decoration {
+  position: absolute;
+  width: 120px;
+  height: auto;
+  top: -20px;
+  right: -60px;
+  transform: rotate(30deg);
+  filter: drop-shadow(2px 2px 5px rgba(0,0,0,0.6));
+  z-index: 1;
+}
+
+.header-desc {
+  font-size: 1.1rem;
+  color: #8a7d6a; 
+  font-weight: 600;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+  margin-bottom: 15px;
+  word-break: keep-all;
 }
 
 main {
-  background-color: #fff;
+  max-width: 100%;
+  margin: 0 auto;
+  perspective: 2500px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-h1 {
+.action-area {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.seal-button {
+  background: url('/btn_background.png') no-repeat center center;
+  background-size: contain;
+  width: 180px; 
+  height: 60px;
+  border: none;
+  color: #000;
+  font-size: 1.2rem;
+  font-weight: 900;
+  font-family: 'Noto Serif KR', serif;
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 0 auto;
-  font-size: 24px;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.1s, filter 0.2s;
+  filter: drop-shadow(0 5px 10px rgba(0,0,0,0.5));
+  padding-bottom: 5px; 
 }
 
-h1::before {
-  content: '';
-  display: inline-block;
-  background: url(gemini.svg);
-  width: 40px;
-  height: 40px;
-  background-size: cover;
+.seal-button:active {
+  transform: scale(0.95);
+  filter: brightness(0.8);
 }
 
-form {
-  margin: 0;
-}
-
-.image-picker {
-  display: flex;
-  width: 100%;
-  gap: 8px;
-  margin-top: 24px;
-}
-
-.image-choice {
+.scroll-wrapper {
   position: relative;
-  border-radius: 8px;
-  overflow: hidden;
-  cursor: pointer;
-}
-
-.image-choice:has(:checked)::before {
-  pointer-events: none;
-  position: absolute;
-  right: 8px;
-  top: 8px;
-  z-index: 1;
-  color: white;
-  content: '✓';
-  background-color: var(--accent-color);
-  width: 16px;
-  height: 16px;
-  display: grid;
-  place-items: center;
-  font-weight: bold;
-  border-radius: 100px;
-  box-shadow: 0 0 0 2px #fff;
-}
-
-.image-choice:has(:checked)::after {
-  content: '';
-  position: absolute;
-  pointer-events: none;
-  inset: 0;
-  border-radius: 8px;
-  box-shadow:
-    0 0 0 2px var(--accent-color) inset,
-    0 0 0 4px #fff inset;
-}
-
-.image-choice img {
-  width: 100%;
-}
-
-.image-choice input {
-  opacity: 0;
-  position: absolute;
-}
-
-.image-choice:focus-within::after {
-  box-shadow: 0 0 0 4px var(--accent-color) inset;
-}
-
-.prompt-box {
-  margin: 24px 0;
-  width: 100%;
+  width: 95%;
+  max-width: 800px;
+  margin: 10px auto;
   display: flex;
-  gap: 8px;
-  align-items: flex-end;
-}
-
-label {
-  display: flex;
-  flex: 1;
   flex-direction: column;
-  gap: 8px;
-  font-size: 12px;
+  align-items: center;
 }
 
-input,
-button {
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 12px 16px;
-  font-family: unset;
-  font-size: 16px;
+.scroll-img-top, .scroll-img-bottom {
+  display: block;
+  width: 100%; 
+  height: auto;
+  z-index: 10;
 }
 
-button {
-  border-color: var(--accent-color);
-  background-color: var(--accent-color);
-  color: white;
-  font-weight: bold;
-  cursor: pointer;
+.scroll-body {
+  width: 100%;
+  background: url('/scroll_middle.png') repeat-y calc(50% - 1px) top;
+  background-size: 73% auto; /* 이 값은 절대 수정하지 않음 */
+  overflow: hidden;
+  max-height: 50px; /* 완전히 닫히지 않고 살짝 열려있도록 기본값 수정 */
+  transition: max-height 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  margin-top: -1px;
+  margin-bottom: -1px;
+  will-change: max-height;
+}
+
+/* 닫혀있을 때는 내부 내용물을 숨김 */
+.scroll-wrapper:not(.open) .scroll-content {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.scroll-wrapper.open .scroll-body {
+  max-height: 5000px; 
+}
+
+.scroll-wrapper.open .scroll-content {
   opacity: 1;
 }
 
-button:focus-visible {
-  outline: 2px solid white;
-  outline-offset: -4px;
+.scroll-content {
+  padding: 20px 80px; 
+  color: #111;
+  min-height: 100px;
+  box-sizing: border-box;
 }
 
-button:hover {
-  opacity: 0.95;
+/* 이미지 프레임 및 명암 */
+.image-container-shading {
+  position: relative;
+  box-shadow: inset 0 0 30px rgba(0,0,0,0.2);
+  border: 1px solid rgba(160, 140, 109, 0.3);
+  background-color: rgba(0,0,0,0.03);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+#imagePreview, #generatedImage {
+  display: block;
+  width: 100%;
+  filter: sepia(0.1) contrast(1.05) brightness(0.95);
+}
+
+.upload-area {
+  border: 2px dashed #a08c6d;
+  padding: 40px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.output { font-size: 1.2rem; line-height: 2.2; color: #111; font-weight: 500; }
+
+@media (max-width: 768px) {
+  main { padding: 0 5px; }
+  .header-desc { 
+    max-width: 250px;
+    margin: 0 auto 15px;
+    line-height: 1.5;
+  }
+  .scroll-content { padding: 15px 40px; }
+  .title-image { max-width: 180px; }
+  .title-decoration { width: 80px; right: -30px; }
+  .seal-button { width: 150px; height: 50px; font-size: 1rem; }
+  .scroll-body { transition-duration: 0.8s; }
 }

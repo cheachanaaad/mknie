@@ -1,39 +1,63 @@
 <!doctype html>
-<html lang="en">
+<html lang="ko">
 
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Baking with the Gemini API</title>
+  <title>정통 AI 관상학자 - 30년 경력의 혜안</title>
 </head>
 
 <body>
+  <audio id="scrollSound" src="/scroll_sound.mp3" preload="auto"></audio>
+
   <main>
-    <h1>Baking with the Gemini API</h1>
     <form>
-      <div class="image-picker">
-        <label class="image-choice">
-          <input type="radio" checked name="chosen-image" value="/baked_goods_1.jpg">
-          <img src="/baked_goods_1.jpg">
-        </label>
-        <label class="image-choice">
-          <input type="radio" name="chosen-image" value="/baked_goods_2.jpg">
-          <img src="/baked_goods_2.jpg">
-        </label>
-        <label class="image-choice">
-          <input type="radio" name="chosen-image" value="/baked_goods_3.jpg">
-          <img src="/baked_goods_3.jpg">
-        </label>
-      </div>
-      <div class="prompt-box">
-        <label>
-          <input name="prompt" placeholder="Enter instructions here" type="text"
-            value="Provide an example recipe for the baked goods in the image">
-        </label>
-        <button type="submit">Go</button>
+      <header>
+        <div class="title-container">
+          <img src="/title_calligraphy_v2.png" class="title-image" alt="관상">
+          <img src="/title_decoration.png" class="title-decoration" alt="장식">
+        </div>
+        <p class="header-desc">三十年 經력 혜안으로 당신의 길흉화복을 살핍니다.</p>
+        
+        <div class="action-area">
+          <button type="submit" class="seal-button">분석요청</button>
+        </div>
+      </header>
+
+      <!-- 사진 업로드 두루마리 -->
+      <div class="scroll-wrapper open">
+        <img src="/scroll_top.png" class="scroll-img-top" alt="두루마리 상단">
+        <div class="scroll-body">
+          <div class="scroll-content">
+            <div class="upload-area" onclick="document.getElementById('imageInput').click()" style="border: 2px dashed #a08c6d; padding: 40px; text-align: center; cursor: pointer;">
+              <input type="file" id="imageInput" accept="image/*" style="display:none">
+              <div id="uploadPlaceholder">
+                <p style="font-size: 4rem; margin: 0;">📜</p>
+                <p>상을 살필 사진을 이 위에 올리시오</p>
+              </div>
+              <img id="imagePreview" src="" style="max-width: 100%; display: none; border: 5px solid #fff;">
+            </div>
+          </div>
+        </div>
+        <img src="/scroll_bottom.png" class="scroll-img-bottom" alt="두루마리 하단">
       </div>
     </form>
-    <p class="output">(Results will appear here)</p>
+
+    <!-- 분석 중 로딩 영역 (정중앙 정렬) -->
+    <div id="loadingOverlay" style="display: none; width: 100%; margin-top: 50px;">
+      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+        <p style="font-size: 1.8rem; font-weight: 900; color: #c5a059; margin-bottom: 20px; text-shadow: 2px 2px 10px rgba(0,0,0,0.9); letter-spacing: 2px;">분석중..</p>
+        <img src="/loading_process.gif" alt="분석중" style="width: 250px; max-width: 80%; border-radius: 15px; box-shadow: 0 20px 50px rgba(0,0,0,0.8);">
+      </div>
+    </div>
+
+    <!-- 최종 결과 출력 영역 -->
+    <div id="finalResult" style="display: none; width: 90%; max-width: 800px; margin: 40px auto; padding: 40px; background: rgba(10, 7, 5, 0.85); border: 2px solid #c5a059; border-radius: 15px; color: #fff; box-shadow: 0 0 30px rgba(197, 160, 89, 0.2);">
+      <div class="output"></div>
+      <div id="aiImageSection" style="display: none; margin-top: 30px; text-align: center;">
+        <div class="image-frame" style="border: 10px solid #fff; box-shadow: 0 10px 30px rgba(0,0,0,0.5);"><img id="generatedImage" src="" style="width: 100%;"></div>
+      </div>
+    </div>
   </main>
 
   <script type="module" src="/main.js"></script>

@@ -1,0 +1,1 @@
+gemini --output-format=json --raw-output --accept-raw-output-risk

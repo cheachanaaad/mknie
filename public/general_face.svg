@@ -1,0 +1,30 @@
+<svg width="600" height="600" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="silverGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#E2E8F0;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#94A3B8;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#475569;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="600" height="600" fill="#0F172A"/>
+  
+  <!-- 얼굴 윤곽: 강인한 사각턱 -->
+  <path d="M180 120 L420 120 L440 380 L300 450 L160 380 Z" fill="#1E293B" stroke="url(#silverGrad)" stroke-width="4"/>
+  
+  <!-- 눈썹: 짙고 칼날 같은 모양 -->
+  <path d="M190 200 L280 180" stroke="#F8FAF8" stroke-width="15" stroke-linecap="round"/>
+  <path d="M320 180 L410 200" stroke="#F8FAF8" stroke-width="15" stroke-linecap="round"/>
+  
+  <!-- 눈: 매서운 호랑이의 눈 -->
+  <path d="M200 250 L270 250 M330 250 L400 250" stroke="url(#silverGrad)" stroke-width="6" stroke-linecap="square"/>
+  <circle cx="235" cy="250" r="5" fill="#FFF"/>
+  <circle cx="365" cy="250" r="5" fill="#FFF"/>
+  
+  <!-- 코: 묵직하고 단단한 코 -->
+  <path d="M300 220 L300 350 M270 350 L330 350" fill="none" stroke="url(#silverGrad)" stroke-width="5"/>
+  
+  <!-- 입: 굳게 다문 입술 -->
+  <path d="M230 400 L370 400" stroke="#FFF" stroke-width="4" stroke-linecap="round"/>
+  
+  <text x="300" y="560" fill="url(#silverGrad)" font-size="32" text-anchor="middle" font-family="serif" font-weight="bold">장군의 상 (GENERAL)</text>
+</svg>

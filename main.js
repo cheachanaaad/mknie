@@ -1,71 +1,154 @@
 import {HumanMessage} from '@langchain/core/messages';
 import {ChatGoogleGenerativeAI} from '@langchain/google-genai';
-import {HarmBlockThreshold, HarmCategory} from '@google/generative-ai';
+import {GoogleGenerativeAI} from '@google/generative-ai';
 import Base64 from 'base64-js';
 import MarkdownIt from 'markdown-it';
-import {maybeShowApiKeyBanner} from './gemini-api-banner';
 import './style.css';
 
-// 🔥 SET `GOOGLE_API_KEY` IN YOUR .env FILE! 🔥
-// 🔥 GET YOUR GEMINI API KEY AT 🔥
-// 🔥 https://g.co/ai/idxGetGeminiKey 🔥
-
 const form = document.querySelector('form');
-const promptInput = document.querySelector('input[name="prompt"]');
 const output = document.querySelector('.output');
+const imageInput = document.getElementById('imageInput');
+const imagePreview = document.getElementById('imagePreview');
+const uploadPlaceholder = document.getElementById('uploadPlaceholder');
+const scrollSound = document.getElementById('scrollSound');
+const loadingOverlay = document.getElementById('loadingOverlay');
+const finalResult = document.getElementById('finalResult');
+
+const apiKey = import.meta.env.VITE_GOOGLE_API_KEY || process.env.GOOGLE_API_KEY;
+
+const EXPERT_PROMPT = `
+너는 동양 관상학을 30년 이상 연구한 정통 관상 전문가다.
+분석은 반드시 전통 관상 이론 체계를 기반으로 한다. 현대 심리학적 해석이나 과학적 반박은 포함하지 말고, 전통 관상학적 상징과 해석만 제시하라.
+한국어로 답변하라.
+`;
+
+let isAnimating = false;
+let soundTimer = null;
+
+const playScrollSound = (duration) => {
+  if (!scrollSound) return;
+  if (soundTimer) clearTimeout(soundTimer);
+  scrollSound.currentTime = 0;
+  scrollSound.play().catch(() => {});
+  soundTimer = setTimeout(() => {
+    scrollSound.pause();
+    scrollSound.currentTime = 0;
+  }, duration);
+};
+
+const getAnimationDuration = () => {
+  return window.innerWidth <= 768 ? 800 : 1200;
+};
+
+imageInput.onchange = () => {
+  const file = imageInput.files[0];
+  if (file && !isAnimating) {
+    isAnimating = true;
+    const uploadScroll = imageInput.closest('.scroll-wrapper');
+    uploadScroll.classList.remove('open');
+    void uploadScroll.offsetWidth;
+
+    setTimeout(() => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        imagePreview.src = e.target.result;
+        imagePreview.style.display = 'block';
+        uploadPlaceholder.style.display = 'none';
+        playScrollSound(getAnimationDuration());
+        requestAnimationFrame(() => {
+          uploadScroll.classList.add('open');
+          isAnimating = false;
+        });
+      };
+      reader.readAsDataURL(file);
+    }, 1000); 
+  }
+};
 
 form.onsubmit = async ev => {
   ev.preventDefault();
-  output.textContent = 'Generating...';
+  if (!imageInput.files[0]) return alert("먼저 사진을 올리시오.");
+  if (isAnimating) return;
+  
+  const uploadScroll = document.querySelector('form .scroll-wrapper');
+  
+  // 1. 업로드 두루마리 즉시 닫기 (중앙 여백 최소화)
+  uploadScroll.classList.remove('open');
+  
+  // 2. 잠시 후 분석 중 로딩 화면 표시
+  setTimeout(() => {
+    loadingOverlay.style.display = 'block';
+    finalResult.style.display = 'none';
+  }, 500); // 닫히는 도중에 로딩이 자연스럽게 나타나도록 함
+
+  if (scrollSound) {
+    scrollSound.currentTime = 0;
+    scrollSound.play().catch(() => {});
+  }
 
   try {
-    // Load the image as a base64 string
-    const imageUrl = form.elements.namedItem('chosen-image').value;
-    const imageBase64 = await fetch(imageUrl)
-      .then(r => r.arrayBuffer())
-      .then(a => Base64.fromByteArray(new Uint8Array(a)));
+    const file = imageInput.files[0];
+    const imageBase64 = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result.split(',')[1]);
+      reader.readAsDataURL(file);
+    });
+
+    const vision = new ChatGoogleGenerativeAI({
+      modelName: 'gemini-1.5-flash',
+      apiKey: apiKey,
+    });
 
     const contents = [
       new HumanMessage({
         content: [
-          {
-            type: 'text',
-            text: promptInput.value,
-          },
-          {
-            type: 'image_url',
-            image_url: `data:image/png;base64,${imageBase64}`,
-          },
+          { type: 'text', text: EXPERT_PROMPT },
+          { type: 'image_url', image_url: `data:image/png;base64,${imageBase64}` },
         ],
       }),
     ];
 
-    // Call the multimodal model, and get a stream of results
-    const vision = new ChatGoogleGenerativeAI({
-      modelName: 'gemini-2.5-flash', // or gemini-2.5-pro
-      safetySettings: [
-        {
-          category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-          threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-        },
-      ],
-    });
-
-    // Multi-modal streaming
     const streamRes = await vision.stream(contents);
-
-    // Read from the stream and interpret the output as markdown
     const buffer = [];
     const md = new MarkdownIt();
 
     for await (const chunk of streamRes) {
       buffer.push(chunk.content);
-      output.innerHTML = md.render(buffer.join(''));
     }
+
+    const fullAnalysis = buffer.join('');
+    
+    // 분석 완료 후 로딩 숨기고 결과 표시
+    loadingOverlay.style.display = 'none';
+    finalResult.style.display = 'block';
+    output.innerHTML = md.render(fullAnalysis);
+
+    await generateNanoBananaImage(fullAnalysis);
+
   } catch (e) {
-    output.innerHTML += '<hr>' + e;
+    loadingOverlay.style.display = 'none';
+    alert('상담 중 차질이 생겼소: ' + e.message);
   }
 };
 
-// You can delete this once you've filled out an API key
-maybeShowApiKeyBanner(process.env.GOOGLE_API_KEY, `enter it in your <code>.env</code> file.`);
+async function generateNanoBananaImage(analysisText) {
+  const imageSection = document.getElementById('aiImageSection');
+  const generatedImg = document.getElementById('generatedImage');
+
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+    const prompt = `A mystical oriental ink-wash painting illustration representing this destiny: ${analysisText.substring(0, 200)}. Focus on symbolic elements like golden dragons or soaring cranes. Professional digital art, cinematic lighting, 4k.`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const imagePart = response.candidates[0].content.parts.find(p => p.inlineData);
+    
+    if (imagePart) {
+      imageSection.style.display = 'block';
+      generatedImg.src = `data:image/png;base64,${imagePart.inlineData.data}`;
+    }
+  } catch (error) {
+    console.error("이미지 생성 오류:", error);
+  }
+}

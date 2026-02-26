@@ -1,0 +1,12 @@
+<svg width="400" height="400" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+  <rect width="400" height="400" fill="#1e293b"/>
+  <path d="M150 80 Q200 60 250 80 L280 280 Q200 350 120 280 Z" fill="#334155" stroke="#ef4444" stroke-width="2"/>
+  <path d="M140 180 Q170 210 200 180" stroke="#ef4444" stroke-width="3" fill="none"/> <!-- 하삼백안 -->
+  <circle cx="170" cy="185" r="4" fill="#ef4444"/> <!-- 눈동자가 위로 -->
+  <path d="M200 180 Q230 210 260 180" stroke="#ef4444" stroke-width="3" fill="none"/> <!-- 하삼백안 -->
+  <circle cx="230" cy="185" r="4" fill="#ef4444"/>
+  <path d="M180 100 L220 110" stroke="#475569" stroke-width="2"/> <!-- 엉성한 눈썹 -->
+  <path d="M160 300 Q200 280 240 300" stroke="#ef4444" stroke-width="3" fill="none"/> <!-- 처진 입꼬리 -->
+  <path d="M200 320 L180 350" stroke="#ef4444" stroke-width="2" fill="none"/> <!-- 뾰족한 턱 -->
+  <text x="200" y="370" fill="#ef4444" font-size="24" text-anchor="middle" font-family="serif">주의할 흉상 (凶相)</text>
+</svg>

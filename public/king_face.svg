@@ -1,0 +1,42 @@
+<svg width="600" height="600" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FDE68A;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#F59E0B;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#B45309;stop-opacity:1" />
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="600" height="600" fill="#0F172A"/>
+  
+  <!-- 얼굴 윤곽: 넓고 완만한 곡선 -->
+  <path d="M150 200 Q150 100 300 100 Q450 100 450 200 L430 400 Q300 500 170 400 Z" fill="#1E293B" stroke="url(#goldGrad)" stroke-width="3" filter="url(#glow)"/>
+  
+  <!-- 이마: 넓고 풍성함 -->
+  <path d="M180 160 Q300 120 420 160" stroke="#FDE68A" stroke-width="8" fill="none" opacity="0.4"/>
+  
+  <!-- 눈: 봉안 (가늘고 길며 끝이 살짝 올라감) -->
+  <path d="M210 260 Q250 240 290 260 M210 260 Q250 275 290 260" fill="none" stroke="url(#goldGrad)" stroke-width="4"/>
+  <circle cx="250" cy="260" r="4" fill="#FDE68A"/>
+  
+  <path d="M310 260 Q350 240 390 260 M310 260 Q350 275 390 260" fill="none" stroke="url(#goldGrad)" stroke-width="4"/>
+  <circle cx="350" cy="260" r="4" fill="#FDE68A"/>
+  
+  <!-- 코: 곧게 뻗은 산맥 같은 콧대 -->
+  <path d="M300 240 L300 360 Q300 380 330 370" fill="none" stroke="url(#goldGrad)" stroke-width="3"/>
+  
+  <!-- 입: 선이 분명하고 위엄 있는 모습 -->
+  <path d="M240 420 Q300 450 360 420" fill="none" stroke="url(#goldGrad)" stroke-width="5"/>
+  
+  <!-- 귀: 부처님 귀처럼 크고 두툼함 -->
+  <path d="M150 250 Q120 230 120 300 Q120 350 150 350" fill="none" stroke="url(#goldGrad)" stroke-width="4"/>
+  <path d="M450 250 Q480 230 480 300 Q480 350 450 350" fill="none" stroke="url(#goldGrad)" stroke-width="4"/>
+  
+  <text x="300" y="560" fill="url(#goldGrad)" font-size="32" text-anchor="middle" font-family="serif" font-weight="bold">제왕의 상 (KING)</text>
+</svg>
