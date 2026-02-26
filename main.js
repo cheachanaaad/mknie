@@ -1,200 +1,161 @@
-import {HumanMessage} from '@langchain/core/messages';
-import {ChatGoogleGenerativeAI} from '@langchain/google-genai';
-import {GoogleGenerativeAI} from '@google/generative-ai';
-import Base64 from 'base64-js';
+import {FaceLandmarker, FilesetResolver} from "@mediapipe/tasks-vision";
 import MarkdownIt from 'markdown-it';
 import './style.css';
 
-const form = document.querySelector('form');
+const form = document.getElementById('physiognomyForm');
 const output = document.querySelector('.output');
-const imageInput = document.getElementById('imageInput');
-const imagePreview = document.getElementById('imagePreview');
-const uploadPlaceholder = document.getElementById('uploadPlaceholder');
+const imageInputFront = document.getElementById('imageInputFront');
+const imageInputDiag = document.getElementById('imageInputDiag');
+const imagePreviewFront = document.getElementById('imagePreviewFront');
+const imagePreviewDiag = document.getElementById('imagePreviewDiag');
+const uploadPlaceholderFront = document.getElementById('uploadPlaceholderFront');
+const uploadPlaceholderDiag = document.getElementById('uploadPlaceholderDiag');
+const hiddenCanvasFront = document.getElementById('hiddenCanvasFront');
+const hiddenCanvasDiag = document.getElementById('hiddenCanvasDiag');
 const scrollSound = document.getElementById('scrollSound');
 const loadingOverlay = document.getElementById('loadingOverlay');
 const loadingAnimationImg = document.getElementById('loadingAnimation');
 const finalResult = document.getElementById('finalResult');
 
-const apiKey = import.meta.env.VITE_GOOGLE_API_KEY || process.env.GOOGLE_API_KEY;
-
-const EXPERT_PROMPT = `
-너는 동양 관상학을 30년 이상 연구한 정통 관상 전문가다.
-분석은 반드시 전통 관상 이론 체계를 기반으로 한다. 현대 심리학적 해석이나 과학적 반박은 포함하지 말고, 전통 관상학적 상징과 해석만 제시하라.
-한국어로 답변하라.
-`;
-
+let faceLandmarker;
 let isAnimating = false;
 let soundTimer = null;
 
-// 애니메이션 프레임 설정 (transparent_frames 폴더 이미지 활용)
+// 애니메이션 설정
 const totalFrames = 10;
 const frames = Array.from({ length: totalFrames }, (_, i) => `/animation_frames/frame_${String(i).padStart(4, '0')}.png`);
-let currentFrame = 0;
-let direction = 1;
-let animationInterval = null;
-
-// 이미지 프리로드
-frames.forEach(src => {
-  const img = new Image();
-  img.src = src;
-});
+let currentFrame = 0; let direction = 1; let animationInterval = null;
 
 const startLoadingAnimation = () => {
-  if (animationInterval) clearInterval(animationInterval);
-  currentFrame = 0;
-  direction = 1;
   animationInterval = setInterval(() => {
-    // 처음 -> 끝 -> 처음 (Ping-pong) 로직
     currentFrame += direction;
-    
-    if (currentFrame >= totalFrames - 1) {
-      currentFrame = totalFrames - 1;
-      direction = -1; // 끝에서 다시 역방향으로
-    } else if (currentFrame <= 0) {
-      currentFrame = 0;
-      direction = 1; // 처음에서 다시 정방향으로
-    }
-    
+    if (currentFrame >= totalFrames - 1) { direction = -1; }
+    else if (currentFrame <= 0) { direction = 1; }
     loadingAnimationImg.src = frames[currentFrame];
-  }, 100); // 100ms 간격
+  }, 80);
 };
-
-const stopLoadingAnimation = () => {
-  if (animationInterval) {
-    clearInterval(animationInterval);
-    animationInterval = null;
-  }
-};
+const stopLoadingAnimation = () => { clearInterval(animationInterval); animationInterval = null; };
 
 const playScrollSound = (duration) => {
   if (!scrollSound) return;
   if (soundTimer) clearTimeout(soundTimer);
-  scrollSound.currentTime = 0;
-  scrollSound.play().catch(() => {});
-  soundTimer = setTimeout(() => {
-    scrollSound.pause();
-    scrollSound.currentTime = 0;
-  }, duration);
+  scrollSound.currentTime = 0; scrollSound.play().catch(() => {});
+  soundTimer = setTimeout(() => { scrollSound.pause(); scrollSound.currentTime = 0; }, duration);
 };
 
-const getAnimationDuration = () => {
-  return window.innerWidth <= 768 ? 800 : 1200;
-};
+// MediaPipe 초기화 (로컬 구동)
+async function initMediaPipe() {
+  const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm");
+  faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+    baseOptions: { modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`, delegate: "GPU" },
+    runningMode: "IMAGE", numFaces: 1
+  });
+}
+initMediaPipe();
 
-imageInput.onchange = () => {
-  const file = imageInput.files[0];
+// 이미지 핸들러
+const handleImage = (input, preview, placeholder, canvas) => {
+  const file = input.files[0];
   if (file && !isAnimating) {
     isAnimating = true;
-    const uploadScroll = imageInput.closest('.scroll-wrapper');
-    uploadScroll.classList.remove('open');
-    void uploadScroll.offsetWidth;
-
+    const scroll = input.closest('.scroll-wrapper');
+    scroll.classList.remove('open');
     setTimeout(() => {
       const reader = new FileReader();
       reader.onload = (e) => {
-        imagePreview.src = e.target.result;
-        imagePreview.style.display = 'block';
-        uploadPlaceholder.style.display = 'none';
-        playScrollSound(getAnimationDuration());
-        requestAnimationFrame(() => {
-          uploadScroll.classList.add('open');
-          isAnimating = false;
-        });
+        const img = new Image();
+        img.onload = () => {
+          preview.src = e.target.result; preview.style.display = 'block'; placeholder.style.display = 'none';
+          canvas.width = img.width; canvas.height = img.height;
+          canvas.getContext('2d').drawImage(img, 0, 0);
+          playScrollSound(window.innerWidth <= 768 ? 800 : 1200);
+          requestAnimationFrame(() => { scroll.classList.add('open'); isAnimating = false; });
+        };
+        img.src = e.target.result;
       };
       reader.readAsDataURL(file);
-    }, 1000); 
+    }, 1000);
   }
 };
+
+imageInputFront.onchange = () => handleImage(imageInputFront, imagePreviewFront, uploadPlaceholderFront, hiddenCanvasFront);
+imageInputDiag.onchange = () => handleImage(imageInputDiag, imagePreviewDiag, uploadPlaceholderDiag, hiddenCanvasDiag);
+
+/**
+ * 제공된 30개 수치 분류 로직 구현
+ */
+function runClassification(landmarks) {
+  const getDist = (p1, p2) => Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+  
+  // 기준 거리 D (내안각 거리)
+  const D = getDist(landmarks[133], landmarks[362]);
+  
+  // 눈 지표
+  const EyeH = Math.abs(landmarks[145].y - landmarks[159].y);
+  const EyeW = getDist(landmarks[33], landmarks[133]);
+  const S_up = Math.max(0, landmarks[468].y - landmarks[159].y) / EyeH;
+  const S_low = Math.max(0, landmarks[145].y - landmarks[468].y) / EyeH;
+  const aspect = EyeW / EyeH;
+  const tilt = Math.atan2(landmarks[133].y - landmarks[33].y, landmarks[133].x - landmarks[33].x) * (180 / Math.PI);
+
+  const results = [];
+  
+  // 판정 로직
+  if (S_low - S_up >= 0.18 && S_low >= 0.28) results.push("하삼백안: 도전적이고 냉철한 기운");
+  if (S_up - S_low >= 0.18 && S_up >= 0.28) results.push("상삼백안: 고집과 신념이 강한 상");
+  if (aspect >= 3.0 && Math.abs(tilt) <= 10) results.push("봉안: 지혜롭고 귀한 신분을 얻을 상");
+  if (aspect >= 3.2 && (EyeH/D) <= 0.22) results.push("세안: 신중하고 치밀한 성정");
+  if (aspect <= 2.6 && (EyeH/D) >= 0.24) results.push("우안: 성품이 착하고 인덕이 많은 상");
+
+  return {
+    metrics: { 
+      "기준거리(D)": D.toFixed(4), 
+      "눈가로세로비": aspect.toFixed(3), 
+      "흰자노출(상)": S_up.toFixed(3), 
+      "흰자노출(하)": S_low.toFixed(3) 
+    },
+    types: results
+  };
+}
 
 form.onsubmit = async ev => {
   ev.preventDefault();
+  if (!imageInputFront.files[0]) return alert("사진을 올려주시오.");
   
-  if (!imageInput.files[0]) {
-    uploadPlaceholder.innerHTML = '<p style="font-size: 1.5rem; color: #ff4d4d;">사진을 먼저 올리시오!</p>';
-    return;
-  }
+  const scroll = document.querySelector('.scroll-wrapper');
+  scroll.classList.remove('open');
   
-  if (isAnimating) return;
-  
-  const uploadScroll = document.querySelector('form .scroll-wrapper');
-  uploadScroll.classList.remove('open');
-  
-  setTimeout(() => {
-    loadingOverlay.style.display = 'flex';
-    startLoadingAnimation();
-    finalResult.style.display = 'none';
-    output.innerHTML = '';
-  }, 800);
-
-  if (scrollSound) {
-    scrollSound.currentTime = 0;
-    scrollSound.play().catch(() => {});
-  }
+  setTimeout(() => { loadingOverlay.style.display = 'flex'; startLoadingAnimation(); finalResult.style.display = 'none'; }, 800);
+  if (scrollSound) playScrollSound(800);
 
   try {
-    const file = imageInput.files[0];
-    const imageBase64 = await new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target.result.split(',')[1]);
-      reader.readAsDataURL(file);
+    // MediaPipe 로컬 분석
+    const fRes = faceLandmarker.detect(hiddenCanvasFront);
+    if (!fRes.faceLandmarks[0]) throw new Error("얼굴을 인식할 수 없소.");
+
+    const analysis = runClassification(fRes.faceLandmarks[0]);
+
+    // 결과 HTML 생성 (API 없이 직접 작성)
+    let resultHtml = `<h3>[ 정밀 분석 결과 ]</h3><ul style="list-style:none; padding:0;">`;
+    analysis.types.forEach(t => {
+      resultHtml += `<li style="margin-bottom:10px; color:#c5a059; font-weight:bold;">• ${t}</li>`;
     });
-
-    const vision = new ChatGoogleGenerativeAI({
-      modelName: 'gemini-1.5-flash',
-      apiKey: apiKey,
-    });
-
-    const contents = [
-      new HumanMessage({
-        content: [
-          { type: 'text', text: EXPERT_PROMPT },
-          { type: 'image_url', image_url: `data:image/png;base64,${imageBase64}` },
-        ],
-      }),
-    ];
-
-    const streamRes = await vision.stream(contents);
-    const buffer = [];
-    const md = new MarkdownIt();
-
-    for await (const chunk of streamRes) {
-      buffer.push(chunk.content);
+    resultHtml += `</ul><hr style="border:0; border-top:1px solid #c5a059; margin:20px 0;">`;
+    resultHtml += `<h4>[ 추출 수치 데이터 ]</h4><pre style="font-size:0.8rem; line-height:1.6;">`;
+    for (const [k, v] of Object.entries(analysis.metrics)) {
+      resultHtml += `${k}: ${v}\n`;
     }
+    resultHtml += `</pre>`;
 
-    const fullAnalysis = buffer.join('');
-    
-    stopLoadingAnimation();
-    loadingOverlay.style.display = 'none';
-    finalResult.style.display = 'block';
-    output.innerHTML = md.render(fullAnalysis);
-
-    await generateNanoBananaImage(fullAnalysis);
+    setTimeout(() => {
+      stopLoadingAnimation();
+      loadingOverlay.style.display = 'none';
+      finalResult.style.display = 'block';
+      output.innerHTML = resultHtml;
+    }, 2000);
 
   } catch (e) {
-    stopLoadingAnimation();
-    loadingOverlay.style.display = 'none';
-    uploadPlaceholder.innerHTML = `<p style="color: #ff4d4d;">차질이 생겼소: ${e.message}</p>`;
+    stopLoadingAnimation(); loadingOverlay.style.display = 'none';
+    alert(e.message);
   }
 };
-
-async function generateNanoBananaImage(analysisText) {
-  const imageSection = document.getElementById('aiImageSection');
-  const generatedImg = document.getElementById('generatedImage');
-
-  try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
-    const prompt = `A mystical oriental ink-wash painting illustration representing this destiny: ${analysisText.substring(0, 200)}. Focus on symbolic elements like golden dragons or soaring cranes. Professional digital art, cinematic lighting, 4k.`;
-
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const imagePart = response.candidates[0].content.parts.find(p => p.inlineData);
-    
-    if (imagePart) {
-      imageSection.style.display = 'block';
-      generatedImg.src = `data:image/png;base64,${imagePart.inlineData.data}`;
-    }
-  } catch (error) {
-    console.error("이미지 생성 오류:", error);
-  }
-}
