@@ -12,6 +12,7 @@ const imagePreview = document.getElementById('imagePreview');
 const uploadPlaceholder = document.getElementById('uploadPlaceholder');
 const scrollSound = document.getElementById('scrollSound');
 const loadingOverlay = document.getElementById('loadingOverlay');
+const loadingAnimationImg = document.getElementById('loadingAnimation');
 const finalResult = document.getElementById('finalResult');
 
 const apiKey = import.meta.env.VITE_GOOGLE_API_KEY || process.env.GOOGLE_API_KEY;
@@ -24,6 +25,46 @@ const EXPERT_PROMPT = `
 
 let isAnimating = false;
 let soundTimer = null;
+
+// 애니메이션 프레임 설정 (transparent_frames 폴더 이미지 활용)
+const totalFrames = 10;
+const frames = Array.from({ length: totalFrames }, (_, i) => `/animation_frames/frame_${String(i).padStart(4, '0')}.png`);
+let currentFrame = 0;
+let direction = 1;
+let animationInterval = null;
+
+// 이미지 프리로드
+frames.forEach(src => {
+  const img = new Image();
+  img.src = src;
+});
+
+const startLoadingAnimation = () => {
+  if (animationInterval) clearInterval(animationInterval);
+  currentFrame = 0;
+  direction = 1;
+  animationInterval = setInterval(() => {
+    // 처음 -> 끝 -> 처음 (Ping-pong) 로직
+    currentFrame += direction;
+    
+    if (currentFrame >= totalFrames - 1) {
+      currentFrame = totalFrames - 1;
+      direction = -1; // 끝에서 다시 역방향으로
+    } else if (currentFrame <= 0) {
+      currentFrame = 0;
+      direction = 1; // 처음에서 다시 정방향으로
+    }
+    
+    loadingAnimationImg.src = frames[currentFrame];
+  }, 100); // 100ms 간격
+};
+
+const stopLoadingAnimation = () => {
+  if (animationInterval) {
+    clearInterval(animationInterval);
+    animationInterval = null;
+  }
+};
 
 const playScrollSound = (duration) => {
   if (!scrollSound) return;
@@ -67,19 +108,23 @@ imageInput.onchange = () => {
 
 form.onsubmit = async ev => {
   ev.preventDefault();
-  if (!imageInput.files[0]) return alert("먼저 사진을 올리시오.");
+  
+  if (!imageInput.files[0]) {
+    uploadPlaceholder.innerHTML = '<p style="font-size: 1.5rem; color: #ff4d4d;">사진을 먼저 올리시오!</p>';
+    return;
+  }
+  
   if (isAnimating) return;
   
   const uploadScroll = document.querySelector('form .scroll-wrapper');
-  
-  // 1. 업로드 두루마리 즉시 닫기 (중앙 여백 최소화)
   uploadScroll.classList.remove('open');
   
-  // 2. 잠시 후 분석 중 로딩 화면 표시
   setTimeout(() => {
-    loadingOverlay.style.display = 'block';
+    loadingOverlay.style.display = 'flex';
+    startLoadingAnimation();
     finalResult.style.display = 'none';
-  }, 500); // 닫히는 도중에 로딩이 자연스럽게 나타나도록 함
+    output.innerHTML = '';
+  }, 800);
 
   if (scrollSound) {
     scrollSound.currentTime = 0;
@@ -118,7 +163,7 @@ form.onsubmit = async ev => {
 
     const fullAnalysis = buffer.join('');
     
-    // 분석 완료 후 로딩 숨기고 결과 표시
+    stopLoadingAnimation();
     loadingOverlay.style.display = 'none';
     finalResult.style.display = 'block';
     output.innerHTML = md.render(fullAnalysis);
@@ -126,8 +171,9 @@ form.onsubmit = async ev => {
     await generateNanoBananaImage(fullAnalysis);
 
   } catch (e) {
+    stopLoadingAnimation();
     loadingOverlay.style.display = 'none';
-    alert('상담 중 차질이 생겼소: ' + e.message);
+    uploadPlaceholder.innerHTML = `<p style="color: #ff4d4d;">차질이 생겼소: ${e.message}</p>`;
   }
 };
 
