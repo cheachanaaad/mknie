@@ -5,6 +5,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>정통 AI 관상학자 - 30년 경력의 혜안</title>
+  
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-XXXXXXXXXX');
+  </script>
+
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm/vision_bundle.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.24.2/dist/ort.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
@@ -14,7 +24,7 @@
   <audio id="scrollSound" src="/scroll_sound.mp3" preload="auto"></audio>
 
   <main>
-    <form id="physiognomyForm">
+    <div id="homeView">
       <header>
         <div class="title-container">
           <img src="/title_calligraphy_v2.png" class="title-image" alt="관상">
@@ -22,40 +32,94 @@
         </div>
         <p class="header-desc">三十年 經력 혜안으로 당신의 길흉화복을 살핍니다.</p>
         
-        <div class="action-area">
-          <button type="submit" class="seal-button">분석요청</button>
+        <div class="action-area" style="display: flex; gap: 10px; justify-content: center; margin-top: 20px; flex-wrap: wrap; align-items: center;">
+          <select id="modelSelect" style="padding: 10px; background: rgba(0,0,0,0.7); color: #c5a059; border: 1px solid #c5a059; border-radius: 5px; font-weight: bold; cursor: pointer; height: 50px;">
+            <option value="gemini-2.0-flash">Gemini 2.5 Flash (권장)</option>
+            <option value="gemini-2.0-flash-lite-preview-02-05">Gemini 2.5 Flash Lite</option>
+            <option value="gemini-2.0-pro-exp-02-05">Gemini 3 Flash (Exp)</option>
+            <option value="gemma-2-27b-it">Gemma 3 (27B)</option>
+            <option value="gemini-1.5-flash">Gemini Robotics ER 1.5</option>
+          </select>
+          <button onclick="document.getElementById('physiognomyForm').requestSubmit()" class="seal-button">전통분석</button>
+          <button id="aiAnalysisBtn" class="seal-button">AI 혜안분석</button>
+          <div style="display: flex; flex-direction: column; gap: 5px;">
+            <button id="devModeBtn" style="padding: 10px 20px; background: rgba(255,255,255,0.1); border: 1px solid #c5a059; color: #c5a059; border-radius: 5px; cursor: pointer; font-weight: bold;">개발자환경</button>
+            <button id="checkApiBtn" style="padding: 5px 10px; background: #333; border: 1px solid #666; color: #aaa; border-radius: 5px; cursor: pointer; font-size: 0.7rem;">API 연결 확인</button>
+          </div>
         </div>
       </header>
 
       <!-- 사진 업로드 두루마리 -->
-      <div class="scroll-wrapper open">
-        <img src="/scroll_top.png" class="scroll-img-top" alt="두루마리 상단">
-        <div class="scroll-body">
-          <div class="scroll-content">
-            <div style="display: flex; gap: 15px; flex-wrap: wrap; justify-content: center;">
-              <div class="upload-area" onclick="document.getElementById('imageInputFront').click()" style="flex: 1; min-width: 200px;">
-                <input type="file" id="imageInputFront" accept="image/*" style="display:none">
-                <div id="uploadPlaceholderFront">
-                  <p style="font-size: 2rem; margin: 0;">📜</p>
-                  <p style="font-weight: 900;">정면 사진</p>
+      <form id="physiognomyForm">
+        <div class="scroll-wrapper open">
+          <img src="/scroll_top.png" class="scroll-img-top" alt="두루마리 상단">
+          <div class="scroll-body">
+            <div class="scroll-content">
+              <div style="display: flex; gap: 15px; flex-wrap: wrap; justify-content: center;">
+                <div class="upload-area" onclick="document.getElementById('imageInputFront').click()" style="flex: 1; min-width: 200px;">
+                  <input type="file" id="imageInputFront" accept="image/*" style="display:none">
+                  <div id="uploadPlaceholderFront">
+                    <p style="font-size: 2rem; margin: 0;">📜</p>
+                    <p style="font-weight: 900;">정면 사진</p>
+                  </div>
+                  <img id="imagePreviewFront" src="" style="max-width: 100%; display: none; border: 5px solid #fff;">
                 </div>
-                <img id="imagePreviewFront" src="" style="max-width: 100%; display: none; border: 5px solid #fff;">
-              </div>
-              
-              <div class="upload-area" onclick="document.getElementById('imageInputDiag').click()" style="flex: 1; min-width: 200px;">
-                <input type="file" id="imageInputDiag" accept="image/*" style="display:none">
-                <div id="uploadPlaceholderDiag">
-                  <p style="font-size: 2rem; margin: 0;">📐</p>
-                  <p style="font-weight: 900;">대각선 사진</p>
+                
+                <div class="upload-area" onclick="document.getElementById('imageInputDiag').click()" style="flex: 1; min-width: 200px;">
+                  <input type="file" id="imageInputDiag" accept="image/*" style="display:none">
+                  <div id="uploadPlaceholderDiag">
+                    <p style="font-size: 2rem; margin: 0;">📐</p>
+                    <p style="font-weight: 900;">대각선 사진</p>
+                  </div>
+                  <img id="imagePreviewDiag" src="" style="max-width: 100%; display: none; border: 5px solid #fff;">
                 </div>
-                <img id="imagePreviewDiag" src="" style="max-width: 100%; display: none; border: 5px solid #fff;">
               </div>
             </div>
           </div>
+          <img src="/scroll_bottom.png" class="scroll-img-bottom" alt="두루마리 하단">
         </div>
-        <img src="/scroll_bottom.png" class="scroll-img-bottom" alt="두루마리 하단">
+      </form>
+    </div>
+
+    <!-- 개발자 환경 뷰 -->
+    <div id="devView" style="display: none; padding: 20px; background: #111; color: #fff; min-height: 100vh;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #c5a059; padding-bottom: 15px; margin-bottom: 20px;">
+        <h2 style="color: #c5a059; margin: 0; font-size: 1.2rem;">🛠️ 관상 데이터 정밀 라벨링</h2>
+        <button id="closeDevBtn" style="padding: 8px 15px; background: #444; color: #fff; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">나가기</button>
       </div>
-    </form>
+
+      <!-- 개발자 전용 독립 업로드 영역 -->
+      <div style="background: #222; padding: 20px; border-radius: 10px; margin-bottom: 25px; border: 1px dashed #c5a059;">
+        <div style="display: flex; gap: 15px; justify-content: center;">
+          <div class="dev-upload-slot" onclick="document.getElementById('devInputFront').click()" style="width: 120px; height: 120px; background: #333; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; overflow: hidden;">
+            <input type="file" id="devInputFront" accept="image/*" style="display: none;">
+            <div id="devSlotTextFront" style="font-size: 0.8rem; color: #aaa; text-align: center;">정면 사진<br>클릭하여 선택</div>
+            <img id="devSlotPrevFront" style="width: 100%; height: 100%; object-fit: cover; display: none; position: absolute; top: 0; left: 0;">
+          </div>
+          <div class="dev-upload-slot" onclick="document.getElementById('devInputDiag').click()" style="width: 120px; height: 120px; background: #333; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; overflow: hidden;">
+            <input type="file" id="devInputDiag" accept="image/*" style="display: none;">
+            <div id="devSlotTextDiag" style="font-size: 0.8rem; color: #aaa; text-align: center;">대각선 사진<br>클릭하여 선택</div>
+            <img id="devSlotPrevDiag" style="width: 100%; height: 100%; object-fit: cover; display: none; position: absolute; top: 0; left: 0;">
+          </div>
+        </div>
+        <p style="text-align: center; color: #666; font-size: 0.8rem; margin-top: 10px;">* 사진 두 장을 모두 선택하면 자동으로 측정이 시작됩니다.</p>
+      </div>
+
+      <div id="devContent" style="display: grid; gap: 12px; margin-bottom: 40px;">
+        <p style="text-align: center; color: #666; padding: 40px;">사진을 선택하여 라벨링을 시작하시오.</p>
+      </div>
+
+      <!-- JSON 데이터 관리 영역 -->
+      <div style="border-top: 1px solid #333; padding-top: 30px; margin-top: 30px;">
+        <h3 style="color: #c5a059; font-size: 1rem; margin-bottom: 15px;">📦 JSON 지식 베이스 관리</h3>
+        <textarea id="jsonEditor" style="width: 100%; height: 200px; background: #000; color: #0f0; border: 1px solid #333; border-radius: 5px; font-family: monospace; font-size: 0.85rem; padding: 10px; margin-bottom: 15px;" spellcheck="false"></textarea>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <button onclick="updateJsonFromEditor()" style="padding: 10px 20px; background: #c5a059; color: #000; border: none; border-radius: 5px; font-weight: bold; cursor: pointer;">JSON 데이터 적용</button>
+          <button onclick="downloadJsonData()" style="padding: 10px 20px; background: #333; color: #fff; border: 1px solid #555; border-radius: 5px; cursor: pointer;">파일로 내보내기 (.json)</button>
+          <button onclick="resetKnowledgeBase()" style="padding: 10px 20px; background: #444; color: #ff4d4d; border: none; border-radius: 5px; cursor: pointer; margin-left: auto;">전체 데이터 초기화</button>
+        </div>
+      </div>
+    </div>
 
     <div id="loadingOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 1000; align-items: center; justify-content: center;">
       <div style="text-align: center; background: #ffffff; padding: 40px; border: 3px solid #a08c6d; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.2);">
@@ -64,29 +128,29 @@
       </div>
     </div>
 
-    <!-- 결과 출력 영역 (세그멘테이션 검증 캔버스 포함) -->
     <div id="finalResult" style="display: none; width: 95%; max-width: 1000px; margin: 40px auto; padding: 40px; background: rgba(10, 7, 5, 0.9); border: 2px solid #c5a059; border-radius: 15px; color: #fff;">
-      <h3 style="color:#c5a059; text-align:center; margin-bottom:30px;">[ 얼굴 분석 및 세그멘테이션 검증 ]</h3>
-      
+      <h3 style="color:#c5a059; text-align:center; margin-bottom:30px;">[ 얼굴 분석 결과 ]</h3>
       <div style="display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; margin-bottom: 40px;">
-        <div style="text-align: center;">
-          <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 10px;">정면 인식 결과</p>
-          <canvas id="canvasFront" style="max-width: 100%; height: auto; border: 2px solid #444; border-radius: 10px;"></canvas>
-        </div>
-        <div style="text-align: center;">
-          <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 10px;">대각선 인식 결과</p>
-          <canvas id="canvasDiag" style="max-width: 100%; height: auto; border: 2px solid #444; border-radius: 10px;"></canvas>
-        </div>
+        <canvas id="canvasFront" style="max-width: 100%; height: auto; border: 2px solid #444; border-radius: 10px;"></canvas>
+        <canvas id="canvasDiag" style="max-width: 100%; height: auto; border: 2px solid #444; border-radius: 10px;"></canvas>
       </div>
-
       <div class="output"></div>
-      <div id="aiImageSection" style="display: none; margin-top: 30px; text-align: center;">
-        <div class="image-frame" style="border: 10px solid #fff; box-shadow: 0 10px 30px rgba(0,0,0,0.5);"><img id="generatedImage" src="" style="width: 100%;"></div>
+    </div>
+
+    <!-- 커스텀 에러 모달 -->
+    <div id="errorModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 2000; align-items: center; justify-content: center; padding: 20px;">
+      <div style="background: #1a1a1a; border: 2px solid #ff4d4d; border-radius: 15px; width: 100%; max-width: 500px; padding: 30px; box-shadow: 0 0 30px rgba(255,0,0,0.3);">
+        <h3 style="color: #ff4d4d; margin-top: 0;">⚠️ 분석 에러 발생</h3>
+        <div id="errorMessage" style="background: #000; color: #eee; padding: 15px; border-radius: 8px; margin: 20px 0; font-family: monospace; font-size: 0.9rem; line-height: 1.6; max-height: 200px; overflow-y: auto; user-select: text; -webkit-user-select: text;">
+          에러 내용이 여기에 표시됩니다.
+        </div>
+        <div style="text-align: right;">
+          <button onclick="document.getElementById('errorModal').style.display='none'" style="padding: 10px 25px; background: #444; color: #fff; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">닫기</button>
+        </div>
       </div>
     </div>
   </main>
 
-  <!-- 내부 분석을 위한 숨겨진 소스 캔버스 -->
   <canvas id="hiddenCanvasFront" style="display: none;"></canvas>
   <canvas id="hiddenCanvasDiag" style="display: none;"></canvas>
 
